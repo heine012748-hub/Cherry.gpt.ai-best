@@ -111,7 +111,7 @@ pip install -r requirements.txt
 Run the sample discovery (filters may be omitted):
 
 ```PYTHONPATH=src python examples/discover_companies.py
-python -m b2b_discovery.company_analyzer --csv data/sample/companies.csv --country Singapore --industry "Food Distribution" --min-employees 100 --product-category "plant-based foods"
+PYTHONPATH=src python -m b2b_discovery.company_analyzer --csv data/sample/companies.csv --country Singapore --industry "Food Distribution" --min-employees 100 --product-category "plant-based foods"
 ```
 
 Run the tests from the repository root:
