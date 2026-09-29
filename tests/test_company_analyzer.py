@@ -1,3 +1,6 @@
+import subprocess
+import sys
+
 from b2b_discovery.company_analyzer import (
     Company,
     DiscoveryCriteria,
@@ -206,3 +209,20 @@ def test_cli_prints_actual_ranked_scores_components_and_websites(capsys):
     assert "P:100 C:40 M:100 B:72" in output
     assert "https://orchid.example" in output
     assert "https://straits.example" in output
+
+
+def test_readme_example_script_runs_from_outside_repository_root(tmp_path):
+    from pathlib import Path
+
+    script = Path(__file__).resolve().parents[1] / "examples" / "run_b2b_discovery.py"
+    completed = subprocess.run(
+        [sys.executable, str(script)],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert "Orchid Foods" in completed.stdout
+    assert "Straits Food Partners" in completed.stdout
+    assert "P:100 C:60 M:100 B:100" in completed.stdout
+    assert "https://orchid.example" in completed.stdout
