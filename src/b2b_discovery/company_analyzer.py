@@ -82,6 +82,15 @@ def _matches(value: str, options: Sequence[str]) -> bool:
     return not options or value.casefold() in {option.casefold() for option in options}
 
 
+def _category_match_count(requested: set[str], offered: Sequence[str]) -> int:
+    """Count target categories matched exactly or by a more specific label."""
+    offered_normalized = tuple(category.strip().casefold() for category in offered)
+    return sum(
+        any(value == target or value.startswith(target + " ") for value in offered_normalized)
+        for target in requested
+    )
+
+
 def _employee_scale_score(employees: int) -> int:
     """Map organization size to a stable account-capacity tier."""
     if employees < 50:
@@ -157,10 +166,8 @@ def score_company_components(
     }
     if criteria.product_categories:
         requested = {item.casefold() for item in criteria.product_categories}
-        offered = {item.casefold() for item in company.product_categories}
-        components["product_fit"] = round(
-            100 * len(requested & offered) / len(requested)
-        )
+        matched = _category_match_count(requested, company.product_categories)
+        components["product_fit"] = round(100 * matched / len(requested))
     if criteria.target_markets:
         components["market_fit"] = _market_fit_score(company, criteria)
     return components
@@ -191,8 +198,8 @@ def analyze_companies(
             continue
         if company.employees < criteria.min_employees:
             continue
-        if requested_categories and not requested_categories.intersection(
-            item.casefold() for item in company.product_categories
+        if requested_categories and not _category_match_count(
+            requested_categories, company.product_categories
         ):
             continue
         components = score_company_components(company, criteria)
@@ -244,7 +251,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not results:
         print("No matching companies found.")
         return 0
-    print(f"{'Score':>5}  {'Company':<28} {'Country':<16} {'Industry':<22} {'Employees':<9} Fit (P/C/M/B)")
+    print(f"{'Score':>5}  {'Company':<28} {'Country':<16} {'Industry':<22} {'Employees':<9} Fit (P/C/M/B)  Website")
     for result in results:
         company = result["company"]
         assert isinstance(company, Company)
@@ -257,7 +264,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         print(
             f"{result['score']:>5}  {company.name:<28} {company.country:<16} "
-            f"{company.industry:<22} {company.employees:<8} {detail}"
+            f"{company.industry:<22} {company.employees:<8} {detail:<23} "
+            f"{company.website or '-'}"
         )
     return 0
 
