@@ -22,6 +22,9 @@ opportunities.
 - Analyze customer needs and business opportunities
 - Outputs: Potential customer lists, company/buyer databases,
   and customer segments
+- Implemented: load company records from CSV, filter by country,
+  industry, minimum employee count, and product category, then score
+  and rank matching companies from 0 to 100
 
 ### 3. E-commerce Analysis
 
@@ -66,8 +69,11 @@ The project uses company and market information such as:
 
 ### Processing
 
-The system analyzes the collected data based on predefined
-business criteria.
+The B2B discovery implementation reads company data from CSV,
+applies the selected filters, calculates a fit score (country 30,
+industry 30, employee threshold 20, product category 20), and
+sorts matching companies by score. Text matching is case-insensitive.
+CSV product categories may be separated by semicolons or pipes.
 
 ### Output
 
@@ -96,10 +102,26 @@ For example:
 
 ## How to Use
 
-1. Download or clone the repository.
-2. Prepare the required data and environment.
-3. Run the analysis code.
-4. Review the market, customer, e-commerce, and VOC analysis results.
+Install the test dependency:
+
+```bash
+pip install -r requirements.txt
+```
+
+Run the sample discovery (filters may be omitted):
+
+```PYTHONPATH=src python examples/discover_companies.py
+python -m b2b_discovery.company_analyzer --csv data/sample/companies.csv --country Singapore --industry "Food Distribution" --min-employees 100 --product-category "plant-based foods"
+```
+
+Run the tests from the repository root:
+
+```PYTHONPATH=src pytest
+```
+
+The CSV requires `name`, `country`, `industry`, `employees`, and
+`product_categories` columns. An optional `website` column is also
+supported. The included sample data is illustrative.
 
 ## License
 
