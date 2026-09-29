@@ -72,9 +72,12 @@ def test_partial_category_coverage_changes_fit_score():
     criteria = DiscoveryCriteria(product_categories=("plant-based", "snacks", "beverages"))
     results = analyze_companies(sample_companies(), criteria)
     by_name = {row["company"].name: row["score"] for row in results}
-    # Beta matches 2/3 requested categories, Alpha and Tokyo each match 1/3.
-    assert by_name == {"Beta Foods": 64, "Alpha Foods": 36, "Tokyo Foods": 44}
-    assert [row["score"] for row in results] == [64, 44, 36]
+    # Beta matches 2/3 requested categories; the other eligible companies
+    # match 1/3, with employee scale separating their priority.
+    assert by_name == {
+        "Beta Foods": 64, "Alpha Foods": 36, "Small Foods": 28, "Tokyo Foods": 52
+    }
+    assert [row["score"] for row in results] == [64, 52, 36, 28]
 
 
 def test_employee_size_tiers_distinguish_candidates_without_product_filter():
