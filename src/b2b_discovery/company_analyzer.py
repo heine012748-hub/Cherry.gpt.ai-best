@@ -63,17 +63,35 @@ def _matches(value: str, options: Sequence[str]) -> bool:
     return not options or value.casefold() in {option.casefold() for option in options}
 
 
-def score_company(company: Company, criteria: DiscoveryCriteria) -> int:
-    """Score a company from 0–100: country 30, industry 30, size 20, category 20."""
-    requested = {item.casefold() for item in criteria.product_categories}
-    offered = {item.casefold() for item in company.product_categories}
-    return (
-        (30 if not criteria.countries or _matches(company.country, criteria.countries) else 0)
-        + (30 if not criteria.industries or _matches(company.industry, criteria.industries) else 0)
-        + (20 if company.employees >= criteria.min_employees else 0)
-        + (20 if not requested or requested.intersection(offered) else 0)
-    )
+def _employee_scale_score(employees: int) -> int:
+    """Map organization size to a stable account-capacity tier."""
+    if employees < 50:
+        return 20
+    if employees < 200:
+        return 40
+    if employees < 500:
+        return 60
+    if employees < 1000:
+        return 80
+    return 100
 
+
+def score_company(company: Company, criteria: DiscoveryCriteria) -> int:
+    """Rank a filter-qualified prospect by product fit (60%) and account scale (40%).
+
+    Product fit is the share of requested categories the company offers. When no
+    product categories were requested, account scale is the full score. Country,
+    industry, minimum employees, and at-least-one category overlap are eligibility
+    filters, so they do not earn points again.
+    """
+    requested = {item.casefold() for item in criteria.product_categories}
+    if not requested:
+        return _employee_scale_score(company.employees)
+
+    offered = {item.casefold() for item in company.product_categories}
+    category_fit = 100 * len(requested.intersection(offered)) / len(requested)
+    size_fit = _employee_scale_score(company.employees)
+    return round(0.60 * category_fit + 0.40 * size_fit)
 
 def analyze_companies(
     companies: Iterable[Company], criteria: DiscoveryCriteria
