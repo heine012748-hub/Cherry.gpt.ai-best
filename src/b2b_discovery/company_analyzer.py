@@ -166,12 +166,17 @@ def score_company_components(
     return components
 
 
+def _weighted_priority_score(components: dict[str, int]) -> int:
+    total_weight = sum(_SCORE_WEIGHTS[name] for name in components)
+    weighted_total = sum(
+        components[name] * _SCORE_WEIGHTS[name] for name in components
+    )
+    return round(weighted_total / total_weight)
+
+
 def score_company(company: Company, criteria: DiscoveryCriteria) -> int:
     """Combine available heuristic components into a 0–100 priority score."""
-    components = score_company_components(company, criteria)
-    total_weight = sum(_SCORE_WEIGHTS[name] for name in components)
-    return round(sum(components[name] * _SCORE_WEIGHTS[name] for name in components)
-                 / total_weight)
+    return _weighted_priority_score(score_company_components(company, criteria))
 
 def analyze_companies(
     companies: Iterable[Company], criteria: DiscoveryCriteria
@@ -193,7 +198,7 @@ def analyze_companies(
         components = score_company_components(company, criteria)
         results.append({
             "company": company,
-            "score": score_company(company, criteria),
+            "score": _weighted_priority_score(components),
             "score_components": components,
         })
     return sorted(
@@ -219,6 +224,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.min_employees < 0:
         parser.error("--min-employees must be non-negative")
+    if args.target_employees_min is not None and args.target_employees_min < 0:
+        parser.error("--target-employees-min must be non-negative")
+    if args.target_employees_max is not None and args.target_employees_max < 0:
+        parser.error("--target-employees-max must be non-negative")
+    if (args.target_employees_min is not None and args.target_employees_max is not None
+            and args.target_employees_min > args.target_employees_max):
+        parser.error("--target-employees-min cannot exceed --target-employees-max")
     criteria = DiscoveryCriteria(
         countries=_csv_values(args.country),
         industries=_csv_values(args.industry),
@@ -232,13 +244,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not results:
         print("No matching companies found.")
         return 0
-    print(f"{'Score':>5}  {'Company':<28} {'Country':<16} {'Industry':<22} Employees")
+    print(f"{'Score':>5}  {'Company':<28} {'Country':<16} {'Industry':<22} {'Employees':<9} Fit (P/C/M/B)")
     for result in results:
         company = result["company"]
         assert isinstance(company, Company)
         parts = result["score_components"]
         assert isinstance(parts, dict)
-        detail = " ".join(f"{key[:1].upper()}:{value}" for key, value in parts.items())
+        labels = (("product_fit", "P"), ("company_fit", "C"),
+                  ("market_fit", "M"), ("business_signal", "B"))
+        detail = " ".join(
+            f"{label}:{parts[key]}" for key, label in labels if key in parts
+        )
         print(
             f"{result['score']:>5}  {company.name:<28} {company.country:<16} "
             f"{company.industry:<22} {company.employees:<8} {detail}"
