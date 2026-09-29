@@ -142,6 +142,50 @@ Run the sample discovery (filters may be omitted):
 PYTHONPATH=src python -m b2b_discovery.company_analyzer --csv data/sample/companies.csv --country Singapore --industry "Food Distribution" --min-employees 100 --product-category "plant-based foods" --target-market Singapore,Malaysia --target-employees-min 100 --target-employees-max 500
 ```
 
+### Example: Singapore Plant-Based Prospect Shortlist
+
+This command uses the included sample CSV and calculates the scores at
+runtime:
+
+```bash
+PYTHONPATH=src python -m b2b_discovery.company_analyzer --csv data/sample/companies.csv --country Singapore --industry "Food Distribution" --product-category plant-based --min-employees 100 --target-market Singapore
+```
+
+**Input**
+
+- Country: Singapore
+- Industry: Food Distribution
+- Product Category: plant-based
+- Minimum Employees: 100
+- Target Market: Singapore
+
+↓
+
+**Results**
+
+1. Orchid Foods
+   - Priority Score: 89
+   - Product Fit: 100
+   - Company Fit: 60
+   - Market Fit: 100
+   - Business Signal: 100
+   - Website: https://orchid.example
+
+2. Straits Food Partners
+   - Priority Score: 80
+   - Product Fit: 100
+   - Company Fit: 40
+   - Market Fit: 100
+   - Business Signal: 72
+   - Website: https://straits.example
+
+The priority score uses the current 60:40:30:20 base weights for
+Product, Company, Market, and Business Signal, normalized over the
+active components. For example, Orchid Foods scores
+`round((100×60 + 60×40 + 100×30 + 100×20) / 150) = 89`.
+The values above are the output calculated from the sample CSV, not
+constants in the CLI.
+
 Run the tests from the repository root:
 
 ```PYTHONPATH=src pytest
