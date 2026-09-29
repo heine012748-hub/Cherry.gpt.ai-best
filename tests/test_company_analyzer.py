@@ -146,3 +146,27 @@ def test_employee_size_tiers_distinguish_candidates_without_product_filter():
         )["company_fit"]
         for employees in sizes
     ) == expected
+
+
+def test_full_priority_score_combines_all_four_components():
+    from b2b_discovery.company_analyzer import score_company
+
+    company = Company(
+        "Target", "Singapore", "Food Manufacturing", 300,
+        ("tea", "coffee"), "https://target.example",
+        ("Singapore",), ("distributor", "importer"),
+    )
+    criteria = DiscoveryCriteria(
+        product_categories=("tea", "coffee"),
+        target_markets=("Singapore", "Malaysia"),
+        target_employee_min=200,
+        target_employee_max=400,
+    )
+    components = score_company_components(company, criteria)
+    assert components == {
+        "company_fit": 100,
+        "business_signal": 72,
+        "product_fit": 100,
+        "market_fit": 50,
+    }
+    assert score_company(company, criteria) == 86
