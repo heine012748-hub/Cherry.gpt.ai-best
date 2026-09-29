@@ -1,4 +1,10 @@
-from b2b_discovery.company_analyzer import Company, DiscoveryCriteria, analyze_companies, load_companies
+from b2b_discovery.company_analyzer import (
+    Company,
+    DiscoveryCriteria,
+    analyze_companies,
+    load_companies,
+    score_company_components,
+)
 
 
 def sample_companies():
@@ -10,16 +16,27 @@ def sample_companies():
     ]
 
 
-def test_load_companies_parses_rows_and_categories(tmp_path):
+def test_load_companies_parses_rows_and_optional_market_and_signal_fields(tmp_path):
     path = tmp_path / "companies.csv"
     path.write_text(
-        "name,country,industry,employees,product_categories,website\n"
-        "Example,Japan,Food,12,tea;snacks,https://example.test\n",
+        "name,country,industry,employees,product_categories,website,operating_markets,business_signals\n"
+        "Example,Japan,Food,12,tea;snacks,https://example.test,Japan|Korea,importer;wholesaler\n",
         encoding="utf-8",
     )
     assert load_companies(path)[0] == Company(
-        "Example", "Japan", "Food", 12, ("tea", "snacks"), "https://example.test"
+        "Example", "Japan", "Food", 12, ("tea", "snacks"), "https://example.test",
+        ("Japan", "Korea"), ("importer", "wholesaler"),
     )
+
+
+def test_load_companies_keeps_original_csv_schema_compatible(tmp_path):
+    path = tmp_path / "companies.csv"
+    path.write_text(
+        "name,country,industry,employees,product_categories\nExample,Japan,Food,12,tea\n",
+        encoding="utf-8",
+    )
+    assert load_companies(path)[0].operating_markets == ()
+    assert load_companies(path)[0].business_signals == ()
 
 
 def test_load_companies_rejects_invalid_employee_count(tmp_path):
@@ -36,30 +53,32 @@ def test_load_companies_rejects_invalid_employee_count(tmp_path):
         raise AssertionError("invalid employee count should fail")
 
 
-def test_filters_eligibility_then_ranks_by_product_fit_and_company_scale():
+def test_filters_stay_separate_and_rank_by_product_company_and_business_fit():
     criteria = DiscoveryCriteria(
         countries=("singapore",), industries=("Food Distribution",),
         min_employees=100, product_categories=("PLANT-BASED", "snacks"),
     )
     results = analyze_companies(sample_companies(), criteria)
     assert [row["company"].name for row in results] == ["Beta Foods", "Alpha Foods"]
-    # Beta covers both requested categories; Alpha covers one and is in a
-    # smaller employee-size tier.
-    assert [row["score"] for row in results] == [84, 46]
+    assert [row["score"] for row in results] == [75, 43]
+    assert set(results[0]["score_components"]) == {
+        "product_fit", "company_fit", "business_signal"
+    }
 
 
-def test_unrequested_category_dimension_uses_employee_scale_score():
+def test_unrequested_product_and_market_fit_are_not_penalized():
     results = analyze_companies(sample_companies(), DiscoveryCriteria(min_employees=100))
     assert [row["company"].name for row in results] == ["Tokyo Foods", "Beta Foods", "Alpha Foods"]
-    assert [row["score"] for row in results] == [80, 60, 40]
+    assert [row["score"] for row in results] == [63, 49, 36]
+    assert all("market_fit" not in row["score_components"] for row in results)
 
 
-def test_category_is_an_eligibility_filter_and_still_scores_qualified_companies():
+def test_category_is_still_an_eligibility_filter():
     results = analyze_companies(
         sample_companies(), DiscoveryCriteria(product_categories=("snacks",))
     )
     assert [row["company"].name for row in results] == ["Beta Foods"]
-    assert results[0]["score"] == 84
+    assert results[0]["score"] == 75
 
 
 def test_empty_results_are_allowed():
@@ -72,15 +91,45 @@ def test_partial_category_coverage_changes_fit_score():
     criteria = DiscoveryCriteria(product_categories=("plant-based", "snacks", "beverages"))
     results = analyze_companies(sample_companies(), criteria)
     by_name = {row["company"].name: row["score"] for row in results}
-    # Beta matches 2/3 requested categories; the other eligible companies
-    # match 1/3, with employee scale separating their priority.
     assert by_name == {
-        "Beta Foods": 64, "Alpha Foods": 36, "Small Foods": 36, "Tokyo Foods": 52
+        "Beta Foods": 58, "Alpha Foods": 34, "Small Foods": 34, "Tokyo Foods": 48
     }
-    assert [row["score"] for row in results] == [64, 52, 36, 36]
+    assert [row["score"] for row in results] == [58, 48, 34, 34]
 
 
-def test_employee_size_tiers_distinguish_candidates_without_product_filter():
-    criteria = DiscoveryCriteria(countries=("Singapore",), min_employees=100)
-    results = analyze_companies(sample_companies(), criteria)
-    assert [row["score"] for row in results] == [60, 40]
+def test_target_market_coverage_is_scored_but_does_not_filter_candidates():
+    local = Company(
+        "Local", "Japan", "Food Manufacturing", 250, (), "", ("Singapore",), ()
+    )
+    absent = Company(
+        "Absent", "Japan", "Food Manufacturing", 250, (), "", ("Japan",), ()
+    )
+    results = analyze_companies(
+        [local, absent], DiscoveryCriteria(target_markets=("Singapore", "Malaysia"))
+    )
+    assert len(results) == 2
+    assert results[0]["company"].name == "Local"
+    assert results[0]["score_components"]["market_fit"] == 50
+    assert results[1]["score_components"]["market_fit"] == 0
+
+
+def test_business_signal_uses_trade_activity_and_weak_website_evidence():
+    sparse = Company("Sparse", "Japan", "Food Manufacturing", 250, (), "https://a.example")
+    active = Company(
+        "Active", "Japan", "Food Manufacturing", 250, (), "",
+        business_signals=("distributor", "importer", "wholesaler"),
+    )
+    sparse_score = score_company_components(sparse, DiscoveryCriteria())["business_signal"]
+    active_score = score_company_components(active, DiscoveryCriteria())["business_signal"]
+    assert sparse_score == 15
+    assert active_score == 85
+
+
+def test_target_employee_range_scores_company_size_fit():
+    in_range = Company("In Range", "Japan", "Food", 300, ())
+    below = Company("Below", "Japan", "Food", 100, ())
+    above = Company("Above", "Japan", "Food", 600, ())
+    criteria = DiscoveryCriteria(target_employee_min=200, target_employee_max=400)
+    assert score_company_components(in_range, criteria)["company_fit"] == 100
+    assert score_company_components(below, criteria)["company_fit"] == 50
+    assert score_company_components(above, criteria)["company_fit"] == 67
