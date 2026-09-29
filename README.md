@@ -69,10 +69,18 @@ The project uses company and market information such as:
 
 ### Processing
 
-The B2B discovery implementation reads company data from CSV,
-applies the selected filters, calculates a fit score (country 30,
-industry 30, employee threshold 20, product category 20), and
-sorts matching companies by score. Text matching is case-insensitive.
+The B2B discovery implementation first filters CSV records by any
+specified country, industry, minimum employee count, and product
+category. These are eligibility checks and do not award points again.
+It then ranks eligible prospects by requested-category coverage (60%)
+and an employee-size tier score (40%). Category coverage is the share
+of requested categories offered by the company. Employee-size tiers
+score 20 points below 50 employees, 40 for 50–199, 60 for 200–499,
+80 for 500–999, and 100 for 1,000 or more. Scores are rounded to the
+nearest integer and sorted highest first. When no product categories
+are requested, the employee-size tier is used as the full score.
+Country, industry, and employee count are useful prioritization proxies;
+they do not establish buying intent. Text matching is case-insensitive.
 CSV product categories may be separated by semicolons or pipes.
 
 ### Output
