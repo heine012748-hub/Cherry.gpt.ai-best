@@ -4,6 +4,7 @@ from b2b_discovery.company_analyzer import (
     analyze_companies,
     load_companies,
     score_company_components,
+    main,
 )
 
 
@@ -170,3 +171,38 @@ def test_full_priority_score_combines_all_four_components():
         "market_fit": 50,
     }
     assert score_company(company, criteria) == 86
+
+
+def test_parent_product_category_matches_specific_csv_category():
+    company = Company(
+        "Plant Foods", "Singapore", "Food Distribution", 240,
+        ("plant-based foods",), "https://plant.example",
+    )
+    results = analyze_companies(
+        [company], DiscoveryCriteria(product_categories=("plant-based",))
+    )
+    assert len(results) == 1
+    assert results[0]["score_components"]["product_fit"] == 100
+
+
+def test_cli_prints_actual_ranked_scores_components_and_websites(capsys):
+    from pathlib import Path
+
+    csv_path = Path(__file__).resolve().parents[1] / "data" / "sample" / "companies.csv"
+    exit_code = main([
+        "--csv", str(csv_path),
+        "--country", "Singapore",
+        "--industry", "Food Distribution",
+        "--min-employees", "100",
+        "--product-category", "plant-based",
+        "--target-market", "Singapore",
+    ])
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert output.index("Orchid Foods") < output.index("Straits Food Partners")
+    assert "89  Orchid Foods" in output
+    assert "80  Straits Food Partners" in output
+    assert "P:100 C:60 M:100 B:100" in output
+    assert "P:100 C:40 M:100 B:72" in output
+    assert "https://orchid.example" in output
+    assert "https://straits.example" in output
