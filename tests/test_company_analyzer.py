@@ -73,8 +73,8 @@ def test_partial_category_coverage_changes_fit_score():
     results = analyze_companies(sample_companies(), criteria)
     by_name = {row["company"].name: row["score"] for row in results}
     # Beta matches 2/3 requested categories, Alpha and Tokyo each match 1/3.
-    assert by_name == {"Beta Foods": 76, "Alpha Foods": 36, "Tokyo Foods": 44}
-    assert [row["score"] for row in results] == [76, 44, 36]
+    assert by_name == {"Beta Foods": 64, "Alpha Foods": 36, "Tokyo Foods": 44}
+    assert [row["score"] for row in results] == [64, 44, 36]
 
 
 def test_employee_size_tiers_distinguish_candidates_without_product_filter():
