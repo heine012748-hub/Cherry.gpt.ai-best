@@ -92,8 +92,10 @@ components:
   website presence contributes up to 15 points. Signals are read from the
   industry field and optional business_signals tags.
 
-The active component weights are normalized to 100, so unspecified
-product or market targets are omitted from scoring. Results include each
+When all four components are active, normalization makes their effective
+weights Product 40%, Company 26.7%, Market 20%, and Business Signal 13.3%.
+If product or market targets are unspecified, those components are omitted
+and the remaining base weights are normalized to 100. Results include each
 component score and are sorted by total score. These signals use public
 company information as a heuristic for deciding outreach order; they do
 not prove purchase intent or probability. Product categories, operating
