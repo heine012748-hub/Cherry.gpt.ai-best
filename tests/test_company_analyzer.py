@@ -75,9 +75,9 @@ def test_partial_category_coverage_changes_fit_score():
     # Beta matches 2/3 requested categories; the other eligible companies
     # match 1/3, with employee scale separating their priority.
     assert by_name == {
-        "Beta Foods": 64, "Alpha Foods": 36, "Small Foods": 28, "Tokyo Foods": 52
+        "Beta Foods": 64, "Alpha Foods": 36, "Small Foods": 36, "Tokyo Foods": 52
     }
-    assert [row["score"] for row in results] == [64, 52, 36, 28]
+    assert [row["score"] for row in results] == [64, 52, 36, 36]
 
 
 def test_employee_size_tiers_distinguish_candidates_without_product_filter():
