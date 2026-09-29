@@ -36,30 +36,48 @@ def test_load_companies_rejects_invalid_employee_count(tmp_path):
         raise AssertionError("invalid employee count should fail")
 
 
-def test_filters_by_criteria_and_sorts_ties_alphabetically():
+def test_filters_eligibility_then_ranks_by_product_fit_and_company_scale():
     criteria = DiscoveryCriteria(
         countries=("singapore",), industries=("Food Distribution",),
-        min_employees=100, product_categories=("PLANT-BASED",),
+        min_employees=100, product_categories=("PLANT-BASED", "snacks"),
     )
     results = analyze_companies(sample_companies(), criteria)
-    assert [row["company"].name for row in results] == ["Alpha Foods", "Beta Foods"]
-    assert [row["score"] for row in results] == [100, 100]
+    assert [row["company"].name for row in results] == ["Beta Foods", "Alpha Foods"]
+    # Beta covers both requested categories; Alpha covers one and is in a
+    # smaller employee-size tier.
+    assert [row["score"] for row in results] == [84, 46]
 
 
-def test_unspecified_dimensions_do_not_reduce_score():
+def test_unrequested_category_dimension_uses_employee_scale_score():
     results = analyze_companies(sample_companies(), DiscoveryCriteria(min_employees=100))
-    assert [row["company"].name for row in results] == ["Alpha Foods", "Beta Foods", "Tokyo Foods"]
-    assert all(row["score"] == 100 for row in results)
+    assert [row["company"].name for row in results] == ["Tokyo Foods", "Beta Foods", "Alpha Foods"]
+    assert [row["score"] for row in results] == [80, 60, 40]
 
 
-def test_category_is_a_filter_when_requested():
+def test_category_is_an_eligibility_filter_and_still_scores_qualified_companies():
     results = analyze_companies(
         sample_companies(), DiscoveryCriteria(product_categories=("snacks",))
     )
     assert [row["company"].name for row in results] == ["Beta Foods"]
+    assert results[0]["score"] == 84
 
 
 def test_empty_results_are_allowed():
     assert analyze_companies(
         sample_companies(), DiscoveryCriteria(countries=("Canada",))
     ) == []
+
+
+def test_partial_category_coverage_changes_fit_score():
+    criteria = DiscoveryCriteria(product_categories=("plant-based", "snacks", "beverages"))
+    results = analyze_companies(sample_companies(), criteria)
+    by_name = {row["company"].name: row["score"] for row in results}
+    # Beta matches 2/3 requested categories, Alpha and Tokyo each match 1/3.
+    assert by_name == {"Beta Foods": 76, "Alpha Foods": 36, "Tokyo Foods": 44}
+    assert [row["score"] for row in results] == [76, 44, 36]
+
+
+def test_employee_size_tiers_distinguish_candidates_without_product_filter():
+    criteria = DiscoveryCriteria(countries=("Singapore",), min_employees=100)
+    results = analyze_companies(sample_companies(), criteria)
+    assert [row["score"] for row in results] == [60, 40]
