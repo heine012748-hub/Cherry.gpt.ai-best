@@ -24,7 +24,49 @@ Key Features:   * Global Market Analysis
     * Identify key problems and business opportunities
     * Develop actionable strategies based on data-driven insights
     * Outputs: Key insights, strategic recommendations, and action plans
-    * 
+How It Works: ### Problem
+
+Finding suitable overseas customers and business partners
+requires collecting and comparing information from multiple
+sources.
+
+### Input
+
+The project uses company and market information such as:
+
+- Country
+- Industry
+- Company size
+- Target market
+- Product category
+
+### Processing
+
+The system analyzes the collected data based on predefined
+business criteria.
+
+### Output
+
+The analysis produces:
+
+- Potential customer lists
+- Company segments
+- Market comparison tables
+- Business opportunity insights
+
+### Example
+
+For example:
+
+Input:
+- Country: Singapore
+- Industry: Food Distribution
+- Minimum employees: 100
+
+Output:
+- Potential B2B partner list
+- Company information
+- Partner relevance
 How to use: 1. Download or clone the repository.
 2. Prepare the required data and environment.
 3. Run the analysis code.
