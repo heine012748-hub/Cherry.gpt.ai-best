@@ -1,157 +1,57 @@
-# Cherry.gpt.ai-best
+# Cherry.gpt.ai-best — B2B Discovery v0.1
 
-## Introduction
+## Project
 
-This project combines global business, AI, and data to analyze
-markets, identify customer needs, and discover new business
-opportunities.
+Cherry.gpt.ai-best is a broader global business and data project. Version 0.1
+implements a CSV-based B2B Customer & Partner Discovery workflow: load company
+records, filter eligible candidates, calculate a transparent B2B Priority Score,
+and rank prospects for an initial outreach review.
 
-## Key Features
+Global market research, e-commerce analysis, consumer/VOC analysis, and
+strategy generation are future project areas; they are not implemented in v0.1.
 
-### 1. Global Market Analysis
+## Implemented in v0.1
 
-- Analyze market size, growth trends, and country-level opportunities
-- Compare major markets and competitors
-- Outputs: Market research reports, country comparison tables,
-  and market opportunity analysis
+- Load company records from CSV.
+- Filter by country, industry, minimum employees, and product category.
+- Score candidates across Product Fit, Company Fit, Market Fit, and Business
+  Signal, then sort by total priority score.
+- Print the score components and company website in the CLI.
+- Run a ready-to-use Singapore sample with one command.
 
-### 2. B2B Customer & Partner Discovery
+## Install
 
-- Identify potential customers and business partners
-- Research and segment companies and buyers
-- Analyze customer needs and business opportunities
-- Outputs: Potential customer lists, company/buyer databases,
-  and customer segments
-- Implemented: load company records from CSV, filter by country,
-  industry, minimum employee count, and product category, then score
-  and rank matching companies from 0 to 100
+Clone the repository and change into its directory. Python 3.10 or newer is
+recommended.
 
-### 3. E-commerce Analysis
-
-- Analyze global e-commerce platforms and local digital channels
-- Compare products, pricing, and competitors
-- Identify consumer trends and channel opportunities
-- Outputs: Competitive product analysis, channel comparison reports,
-  and e-commerce insights
-
-### 4. AI/LLM-Based Consumer Analysis
-
-- Preprocess and analyze consumer review data
-- Use LLMs to classify and structure Voice of Customer (VOC)
-- Identify key consumer opinions, keywords, and response patterns
-- Outputs: Structured VOC datasets, consumer insights,
-  and data visualizations
-
-### 5. Data-Driven Strategy Development
-
-- Integrate market, customer, and consumer data
-- Identify key problems and business opportunities
-- Develop actionable strategies based on data-driven insights
-- Outputs: Key insights, strategic recommendations, and action plans
-
-## How It Works
-
-### Problem
-
-Finding suitable overseas customers and business partners
-requires collecting and comparing information from multiple
-sources.
-
-### Input
-
-The project uses company and market information such as:
-
-- Country
-- Industry
-- Company size
-- Target market
-- Product category
-
-### Processing
-
-The B2B discovery implementation separates eligibility filters from
-priority scoring. The existing country, industry, minimum employee count,
-and product category filters determine which companies are candidates;
-passing a filter does not itself award score points.
-
-Eligible companies receive a 0–100 heuristic priority score from these
-components:
-
-- Product Fit (weight 60): percentage of requested product categories
-  the company handles. The eligibility filter still requires at least
-  one category match.
-- Company Fit (weight 40): by default, employee tiers score 20 below 50,
-  40 for 50–199, 60 for 200–499, 80 for 500–999, and 100 for 1,000 or
-  more. Optional target employee bounds make companies inside the target
-  range score 100, with scores decreasing by relative distance outside it.
-- Market Fit (weight 30): percentage of requested target markets listed
-  among the company's operating markets.
-- Business Signal (weight 20): recognized public B2B activity types
-  (distributor, importer, wholesaler, retailer, exporter, international/
-  overseas/global business, or trading) contribute up to 85 points;
-  website presence contributes up to 15 points. Signals are read from the
-  industry field and optional business_signals tags.
-
-When all four components are active, normalization makes their effective
-weights Product 40%, Company 26.7%, Market 20%, and Business Signal 13.3%.
-If product or market targets are unspecified, those components are omitted
-and the remaining base weights are normalized to 100. Results include each
-component score and are sorted by total score. These signals use public
-company information as a heuristic for deciding outreach order; they do
-not prove purchase intent or probability. Product categories, operating
-markets, and business signals can use semicolon or pipe separators.
-Existing CSV columns remain required; operating_markets and
-business_signals are optional.
-
-### Output
-
-The analysis produces:
-
-- Potential customer lists
-- Company segments
-- Market comparison tables
-- Business opportunity insights
-
-### Example
-
-For example:
-
-**Input**
-
-- Country: Singapore
-- Industry: Food Distribution
-- Minimum employees: 100
-
-**Output**
-
-- Potential B2B partner list
-- Company information
-- Partner relevance
-
-## How to Use
-
-Install the test dependency:
+Create and activate a virtual environment:
 
 ```bash
-pip install -r requirements.txt
+python -m venv .venv
+source .venv/bin/activate
 ```
 
-Run the sample discovery (filters may be omitted):
+On Windows PowerShell, activate it with:
 
-```PYTHONPATH=src python examples/discover_companies.py
-PYTHONPATH=src python -m b2b_discovery.company_analyzer --csv data/sample/companies.csv --country Singapore --industry "Food Distribution" --min-employees 100 --product-category "plant-based foods" --target-market Singapore,Malaysia --target-employees-min 100 --target-employees-max 500
+```powershell
+.venv\Scripts\Activate.ps1
 ```
 
-### Example: Singapore Plant-Based Prospect Shortlist
-
-This command uses the included sample CSV and calculates the scores at
-runtime:
+Install the dependencies:
 
 ```bash
-PYTHONPATH=src python -m b2b_discovery.company_analyzer --csv data/sample/companies.csv --country Singapore --industry "Food Distribution" --product-category plant-based --min-employees 100 --target-market Singapore
+python -m pip install -r requirements.txt
 ```
 
-**Input**
+## Run
+
+From the repository root, run the included example:
+
+```bash
+python examples/run_b2b_discovery.py
+```
+
+The example loads `data/sample/companies.csv` and applies:
 
 - Country: Singapore
 - Industry: Food Distribution
@@ -159,41 +59,126 @@ PYTHONPATH=src python -m b2b_discovery.company_analyzer --csv data/sample/compan
 - Minimum Employees: 100
 - Target Market: Singapore
 
-↓
+To choose different criteria or a different CSV, use the CLI directly:
 
-**Results**
-
-1. Orchid Foods
-   - Priority Score: 89
-   - Product Fit: 100
-   - Company Fit: 60
-   - Market Fit: 100
-   - Business Signal: 100
-   - Website: https://orchid.example
-
-2. Straits Food Partners
-   - Priority Score: 80
-   - Product Fit: 100
-   - Company Fit: 40
-   - Market Fit: 100
-   - Business Signal: 72
-   - Website: https://straits.example
-
-The priority score uses the current 60:40:30:20 base weights for
-Product, Company, Market, and Business Signal, normalized over the
-active components. For example, Orchid Foods scores
-`round((100×60 + 60×40 + 100×30 + 100×20) / 150) = 89`.
-The values above are the output calculated from the sample CSV, not
-constants in the CLI.
-
-Run the tests from the repository root:
-
-```PYTHONPATH=src pytest
+```bash
+python -m b2b_discovery.company_analyzer --csv data/sample/companies.csv --country Singapore --industry "Food Distribution" --product-category plant-based --min-employees 100 --target-market Singapore
 ```
 
-The CSV requires `name`, `country`, `industry`, `employees`, and
-`product_categories` columns. An optional `website` column is also
-supported. The included sample data is illustrative.
+The CLI prints candidates in descending Priority Score order. Component
+abbreviations are `P` Product Fit, `C` Company Fit, `M` Market Fit, and
+`B` Business Signal.
+
+## Input data
+
+The CSV must include these columns:
+
+| Column | Required | Meaning |
+| --- | --- | --- |
+| `name` | Yes | Company name |
+| `country` | Yes | Company's country; used by the country filter |
+| `industry` | Yes | Industry label; used by the industry filter and business-signal scan |
+| `employees` | Yes | Non-negative employee count |
+| `product_categories` | Yes | Semicolon- or pipe-separated categories handled by the company |
+| `website` | No | Public company website |
+| `operating_markets` | No | Semicolon- or pipe-separated markets where it operates |
+| `business_signals` | No | Semicolon- or pipe-separated public activity tags, such as importer or exporter |
+
+The original five required columns remain valid; the three additional columns
+are optional. See `data/sample/companies.csv` for a complete example.
+
+## Candidate Filter
+
+Filtering determines eligibility before scoring:
+
+- Country and industry, when provided, must match the company's values
+  (case-insensitive).
+- Employees must be at least the requested minimum.
+- At least one requested product category must match. Matching is
+  case-insensitive; a requested parent label such as `plant-based` also
+  matches a more specific label such as `plant-based foods`.
+- All supplied filters are applied together.
+
+Target Market is a scoring input, not a hard filter. A company can remain a
+candidate with zero Market Fit if it has no listed activity in the requested
+market.
+
+## B2B Priority Score
+
+Priority Score is a 0–100 **heuristic for ordering outreach candidates**. It
+uses the available company data and configured targets. It is not a model of
+purchase likelihood, buying intent, or purchase probability.
+
+Each active component is scored from 0 to 100:
+
+- **Product Fit** — percentage of requested product categories handled by the
+  company.
+- **Company Fit** — when no target size is supplied, employee tiers score 20
+  below 50 employees, 40 for 50–199, 60 for 200–499, 80 for 500–999, and 100
+  for 1,000 or more. Optional `--target-employees-min` and
+  `--target-employees-max` bounds give 100 within the target range and reduce
+  the score in proportion to the distance outside it.
+- **Market Fit** — percentage of requested target markets listed in
+  `operating_markets`.
+- **Business Signal** — recognizes distributor/distribution, importer,
+  wholesaler, retailer, exporter, international/overseas/global, and
+  trading-related terms in `industry` and `business_signals`. Up to three
+  distinct activity types contribute 85 points; a non-empty website adds up
+  to 15 points. A website alone is weak public-presence evidence, not proof of
+  a commercial signal.
+
+The base weights are Product Fit 60, Company Fit 40, Market Fit 30, and
+Business Signal 20. If all four components are active, normalization makes
+their effective weights 40%, 26.7%, 20%, and 13.3%. The final score is:
+
+```
+round(sum(component_score × active_base_weight) / sum(active_base_weights))
+```
+
+Product Fit is omitted when no product category is requested; Market Fit is
+omitted when no target market is requested. The other available components are
+renormalized to a 100-point total. Scores are rounded to the nearest integer,
+and ties are sorted by company name.
+
+## Sample execution
+
+Run:
+
+```bash
+python examples/run_b2b_discovery.py
+```
+
+Actual output from the included sample CSV:
+
+```text
+Score  Company                      Country          Industry               Employees Fit (P/C/M/B)  Website
+   89  Orchid Foods                 Singapore        Food Distribution      240      P:100 C:60 M:100 B:100  https://orchid.example
+   80  Straits Food Partners        Singapore        Food Distribution      180      P:100 C:40 M:100 B:72   https://straits.example
+```
+
+For example, Orchid Foods scores
+`round((100×60 + 60×40 + 100×30 + 100×20) / 150) = 89`. These values are
+calculated from the CSV at runtime; they are not hard-coded in the example.
+
+## Verify
+
+Install the test dependency with the other requirements, then run:
+
+```bash
+pytest
+```
+
+## Limitations
+
+- The included data is illustrative, not a verified or exhaustive company list.
+- Employee count is a coarse proxy for account size; the default tiers are
+  configurable heuristics, not calibrated sales outcomes.
+- Market and business signals depend on user-supplied CSV data. Missing or
+  stale data can lower or distort rankings.
+- Business-signal detection uses a small keyword list and cannot understand
+  context or verify claims on a company's website.
+- A high score only means the available fields align with the chosen criteria.
+  Validate prospects and their current activity before outreach.
 
 ## License
 
