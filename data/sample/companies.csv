@@ -1,6 +1,6 @@
-name,country,industry,employees,product_categories,website
-Orchid Foods,Singapore,Food Distribution,240,plant-based foods;snacks,https://orchid.example
-Lion City Imports,Singapore,Food Distribution,85,beverages;snacks,https://lioncity.example
-Pacific Pantry,Malaysia,Food Distribution,310,plant-based foods;beverages,https://pacific.example
-Seoul Fresh Partners,South Korea,Food Manufacturing,520,plant-based foods;frozen meals,https://seoulfresh.example
-Merlion Retail Group,Singapore,Retail,1200,consumer goods;snacks,https://merlion.example
+name,country,industry,employees,product_categories,website,operating_markets,business_signals
+Orchid Foods,Singapore,Food Distribution,240,plant-based foods;snacks,https://orchid.example,Singapore;Malaysia;Indonesia,distributor;wholesaler;exporter
+Lion City Imports,Singapore,Food Distribution,85,beverages;snacks,https://lioncity.example,Singapore;Malaysia,importer;wholesaler
+Pacific Pantry,Malaysia,Food Distribution,310,plant-based foods;beverages,https://pacific.example,Malaysia;Singapore;Thailand,distributor;exporter;international business
+Seoul Fresh Partners,South Korea,Food Manufacturing,520,plant-based foods;frozen meals,https://seoulfresh.example,South Korea;Japan,exporter;international business
+Merlion Retail Group,Singapore,Retail,1200,consumer goods;snacks,https://merlion.example,Singapore;Malaysia;Indonesia,retailer;wholesaler
