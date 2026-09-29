@@ -62,6 +62,13 @@ The example loads `data/sample/companies.csv` and applies:
 To choose different criteria or a different CSV, use the CLI directly:
 
 ```bash
+PYTHONPATH=src python -m b2b_discovery.company_analyzer --csv data/sample/companies.csv --country Singapore --industry "Food Distribution" --product-category plant-based --min-employees 100 --target-market Singapore
+```
+
+In Windows PowerShell, set the source path before running that command:
+
+```powershell
+$env:PYTHONPATH = "src"
 python -m b2b_discovery.company_analyzer --csv data/sample/companies.csv --country Singapore --industry "Food Distribution" --product-category plant-based --min-employees 100 --target-market Singapore
 ```
 
