@@ -69,19 +69,37 @@ The project uses company and market information such as:
 
 ### Processing
 
-The B2B discovery implementation first filters CSV records by any
-specified country, industry, minimum employee count, and product
-category. These are eligibility checks and do not award points again.
-It then ranks eligible prospects by requested-category coverage (60%)
-and an employee-size tier score (40%). Category coverage is the share
-of requested categories offered by the company. Employee-size tiers
-score 20 points below 50 employees, 40 for 50–199, 60 for 200–499,
-80 for 500–999, and 100 for 1,000 or more. Scores are rounded to the
-nearest integer and sorted highest first. When no product categories
-are requested, the employee-size tier is used as the full score.
-Country, industry, and employee count are useful prioritization proxies;
-they do not establish buying intent. Text matching is case-insensitive.
-CSV product categories may be separated by semicolons or pipes.
+The B2B discovery implementation separates eligibility filters from
+priority scoring. The existing country, industry, minimum employee count,
+and product category filters determine which companies are candidates;
+passing a filter does not itself award score points.
+
+Eligible companies receive a 0–100 heuristic priority score from these
+components:
+
+- Product Fit (weight 60): percentage of requested product categories
+  the company handles. The eligibility filter still requires at least
+  one category match.
+- Company Fit (weight 40): by default, employee tiers score 20 below 50,
+  40 for 50–199, 60 for 200–499, 80 for 500–999, and 100 for 1,000 or
+  more. Optional target employee bounds make companies inside the target
+  range score 100, with scores decreasing by relative distance outside it.
+- Market Fit (weight 30): percentage of requested target markets listed
+  among the company's operating markets.
+- Business Signal (weight 20): recognized public B2B activity types
+  (distributor, importer, wholesaler, retailer, exporter, international/
+  overseas/global business, or trading) contribute up to 85 points;
+  website presence contributes up to 15 points. Signals are read from the
+  industry field and optional business_signals tags.
+
+The active component weights are normalized to 100, so unspecified
+product or market targets are omitted from scoring. Results include each
+component score and are sorted by total score. These signals use public
+company information as a heuristic for deciding outreach order; they do
+not prove purchase intent or probability. Product categories, operating
+markets, and business signals can use semicolon or pipe separators.
+Existing CSV columns remain required; operating_markets and
+business_signals are optional.
 
 ### Output
 
@@ -119,7 +137,7 @@ pip install -r requirements.txt
 Run the sample discovery (filters may be omitted):
 
 ```PYTHONPATH=src python examples/discover_companies.py
-PYTHONPATH=src python -m b2b_discovery.company_analyzer --csv data/sample/companies.csv --country Singapore --industry "Food Distribution" --min-employees 100 --product-category "plant-based foods"
+PYTHONPATH=src python -m b2b_discovery.company_analyzer --csv data/sample/companies.csv --country Singapore --industry "Food Distribution" --min-employees 100 --product-category "plant-based foods" --target-market Singapore,Malaysia --target-employees-min 100 --target-employees-max 500
 ```
 
 Run the tests from the repository root:
