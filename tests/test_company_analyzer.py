@@ -16,7 +16,7 @@ def sample_companies():
     ]
 
 
-def test_load_companies_parses_rows_and_optional_market_and_signal_fields(tmp_path):
+def test_load_companies_parses_rows_and_categories(tmp_path):
     path = tmp_path / "companies.csv"
     path.write_text(
         "name,country,industry,employees,product_categories,website,operating_markets,business_signals\n"
@@ -53,7 +53,7 @@ def test_load_companies_rejects_invalid_employee_count(tmp_path):
         raise AssertionError("invalid employee count should fail")
 
 
-def test_filters_stay_separate_and_rank_by_product_company_and_business_fit():
+def test_filters_eligibility_then_ranks_by_product_fit_and_company_scale():
     criteria = DiscoveryCriteria(
         countries=("singapore",), industries=("Food Distribution",),
         min_employees=100, product_categories=("PLANT-BASED", "snacks"),
@@ -66,14 +66,14 @@ def test_filters_stay_separate_and_rank_by_product_company_and_business_fit():
     }
 
 
-def test_unrequested_product_and_market_fit_are_not_penalized():
+def test_unrequested_category_dimension_uses_employee_scale_score():
     results = analyze_companies(sample_companies(), DiscoveryCriteria(min_employees=100))
     assert [row["company"].name for row in results] == ["Tokyo Foods", "Beta Foods", "Alpha Foods"]
     assert [row["score"] for row in results] == [63, 49, 36]
     assert all("market_fit" not in row["score_components"] for row in results)
 
 
-def test_category_is_still_an_eligibility_filter():
+def test_category_is_an_eligibility_filter_and_still_scores_qualified_companies():
     results = analyze_companies(
         sample_companies(), DiscoveryCriteria(product_categories=("snacks",))
     )
@@ -133,3 +133,16 @@ def test_target_employee_range_scores_company_size_fit():
     assert score_company_components(in_range, criteria)["company_fit"] == 100
     assert score_company_components(below, criteria)["company_fit"] == 50
     assert score_company_components(above, criteria)["company_fit"] == 67
+
+
+def test_employee_size_tiers_distinguish_candidates_without_product_filter():
+    sizes = (49, 50, 199, 200, 499, 500, 999, 1000)
+    expected = (20, 40, 40, 60, 60, 80, 80, 100)
+    criteria = DiscoveryCriteria()
+    assert tuple(
+        score_company_components(
+            Company(f"Company {employees}", "Japan", "Food Manufacturing", employees, ()),
+            criteria,
+        )["company_fit"]
+        for employees in sizes
+    ) == expected
