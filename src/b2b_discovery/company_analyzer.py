@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Sequence
@@ -16,6 +17,8 @@ class Company:
     employees: int
     product_categories: tuple[str, ...]
     website: str = ""
+    operating_markets: tuple[str, ...] = ()
+    business_signals: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -24,6 +27,20 @@ class DiscoveryCriteria:
     industries: tuple[str, ...] = ()
     min_employees: int = 0
     product_categories: tuple[str, ...] = ()
+    target_markets: tuple[str, ...] = ()
+    target_employee_min: int | None = None
+    target_employee_max: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.min_employees < 0:
+            raise ValueError("min_employees must be non-negative")
+        for label, value in (("target_employee_min", self.target_employee_min),
+                             ("target_employee_max", self.target_employee_max)):
+            if value is not None and value < 0:
+                raise ValueError(f"{label} must be non-negative")
+        if (self.target_employee_min is not None and self.target_employee_max is not None
+                and self.target_employee_min > self.target_employee_max):
+            raise ValueError("target_employee_min cannot exceed target_employee_max")
 
 
 def _split_categories(value: str) -> tuple[str, ...]:
@@ -55,6 +72,8 @@ def load_companies(csv_path: str | Path) -> list[Company]:
                 employees=employees,
                 product_categories=_split_categories(row.get("product_categories") or ""),
                 website=(row.get("website") or "").strip(),
+                operating_markets=_split_categories(row.get("operating_markets") or ""),
+                business_signals=_split_categories(row.get("business_signals") or ""),
             ))
     return companies
 
@@ -76,22 +95,83 @@ def _employee_scale_score(employees: int) -> int:
     return 100
 
 
-def score_company(company: Company, criteria: DiscoveryCriteria) -> int:
-    """Rank a filter-qualified prospect by product fit (60%) and account scale (40%).
-
-    Product fit is the share of requested categories the company offers. When no
-    product categories were requested, account scale is the full score. Country,
-    industry, minimum employees, and at-least-one category overlap are eligibility
-    filters, so they do not earn points again.
-    """
-    requested = {item.casefold() for item in criteria.product_categories}
-    if not requested:
+def _company_fit_score(company: Company, criteria: DiscoveryCriteria) -> int:
+    lower, upper = criteria.target_employee_min, criteria.target_employee_max
+    if lower is None and upper is None:
         return _employee_scale_score(company.employees)
+    if lower is not None and company.employees < lower:
+        return round(100 * company.employees / lower) if lower else 100
+    if upper is not None and company.employees > upper:
+        return round(100 * upper / company.employees) if company.employees else 100
+    return 100
 
-    offered = {item.casefold() for item in company.product_categories}
-    category_fit = 100 * len(requested.intersection(offered)) / len(requested)
-    size_fit = _employee_scale_score(company.employees)
-    return round(0.60 * category_fit + 0.40 * size_fit)
+
+def _market_fit_score(company: Company, criteria: DiscoveryCriteria) -> int:
+    targets = {market.casefold() for market in criteria.target_markets}
+    active_markets = {market.casefold() for market in company.operating_markets}
+    return round(100 * len(targets & active_markets) / len(targets)) if targets else 100
+
+
+_SIGNAL_PATTERNS = {
+    "distributor": r"\b(distributor|distribution)\b",
+    "importer": r"\b(importer|importing|imports)\b",
+    "wholesaler": r"\b(wholesaler|wholesale)\b",
+    "retailer": r"\b(retailer|retail)\b",
+    "exporter": r"\b(exporter|exporting|exports)\b",
+    "international": r"\b(international|overseas|global)\b",
+    "trader": r"\b(trader|trading|trade)\b",
+}
+
+
+def _business_signal_score(company: Company) -> int:
+    """Score public activity evidence; a website alone is weak evidence."""
+    public_text = " ".join((company.industry, *company.business_signals)).casefold()
+    signals = {
+        label for label, pattern in _SIGNAL_PATTERNS.items()
+        if re.search(pattern, public_text)
+    }
+    trade_activity = min(len(signals), 3) / 3 * 85
+    website_presence = 15 if company.website.strip() else 0
+    return round(trade_activity + website_presence)
+
+
+_SCORE_WEIGHTS = {
+    "product_fit": 60,
+    "company_fit": 40,
+    "market_fit": 30,
+    "business_signal": 20,
+}
+
+
+def score_company_components(
+    company: Company, criteria: DiscoveryCriteria
+) -> dict[str, int]:
+    """Return available 0–100 heuristic components for a prospect.
+
+    Product and market components are omitted when the user did not specify
+    those targets. The remaining component weights are normalized by the caller.
+    """
+    components = {
+        "company_fit": _company_fit_score(company, criteria),
+        "business_signal": _business_signal_score(company),
+    }
+    if criteria.product_categories:
+        requested = {item.casefold() for item in criteria.product_categories}
+        offered = {item.casefold() for item in company.product_categories}
+        components["product_fit"] = round(
+            100 * len(requested & offered) / len(requested)
+        )
+    if criteria.target_markets:
+        components["market_fit"] = _market_fit_score(company, criteria)
+    return components
+
+
+def score_company(company: Company, criteria: DiscoveryCriteria) -> int:
+    """Combine available heuristic components into a 0–100 priority score."""
+    components = score_company_components(company, criteria)
+    total_weight = sum(_SCORE_WEIGHTS[name] for name in components)
+    return round(sum(components[name] * _SCORE_WEIGHTS[name] for name in components)
+                 / total_weight)
 
 def analyze_companies(
     companies: Iterable[Company], criteria: DiscoveryCriteria
@@ -110,7 +190,12 @@ def analyze_companies(
             item.casefold() for item in company.product_categories
         ):
             continue
-        results.append({"company": company, "score": score_company(company, criteria)})
+        components = score_company_components(company, criteria)
+        results.append({
+            "company": company,
+            "score": score_company(company, criteria),
+            "score_components": components,
+        })
     return sorted(
         results,
         key=lambda result: (-int(result["score"]), str(result["company"].name).casefold()),
@@ -128,6 +213,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--industry", default="", help="Comma-separated industries")
     parser.add_argument("--min-employees", type=int, default=0)
     parser.add_argument("--product-category", default="", help="Comma-separated product categories")
+    parser.add_argument("--target-market", default="", help="Comma-separated target markets for Market Fit")
+    parser.add_argument("--target-employees-min", type=int, default=None, help="Lower edge of ideal account-size range")
+    parser.add_argument("--target-employees-max", type=int, default=None, help="Upper edge of ideal account-size range")
     args = parser.parse_args(argv)
     if args.min_employees < 0:
         parser.error("--min-employees must be non-negative")
@@ -136,6 +224,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         industries=_csv_values(args.industry),
         min_employees=args.min_employees,
         product_categories=_csv_values(args.product_category),
+        target_markets=_csv_values(args.target_market),
+        target_employee_min=args.target_employees_min,
+        target_employee_max=args.target_employees_max,
     )
     results = analyze_companies(load_companies(args.csv), criteria)
     if not results:
@@ -145,9 +236,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     for result in results:
         company = result["company"]
         assert isinstance(company, Company)
+        parts = result["score_components"]
+        assert isinstance(parts, dict)
+        detail = " ".join(f"{key[:1].upper()}:{value}" for key, value in parts.items())
         print(
             f"{result['score']:>5}  {company.name:<28} {company.country:<16} "
-            f"{company.industry:<22} {company.employees}"
+            f"{company.industry:<22} {company.employees:<8} {detail}"
         )
     return 0
 
