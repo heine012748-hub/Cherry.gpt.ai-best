@@ -12,10 +12,20 @@ def main() -> None:
         industries=("Food Distribution",),
         min_employees=100,
         product_categories=("plant-based foods",),
+        target_markets=("Singapore", "Malaysia"),
+        target_employee_min=100,
+        target_employee_max=500,
     )
     for result in analyze_companies(companies, criteria):
         company = result["company"]
-        print(f'{result["score"]:3}  {company.name} ({company.employees} employees)')
+        components = result["score_components"]
+        print(
+            f'{result["score"]:3}  {company.name} ({company.employees} employees) '
+            f'P:{components.get("product_fit", "-")} '
+            f'C:{components["company_fit"]} '
+            f'M:{components.get("market_fit", "-")} '
+            f'B:{components["business_signal"]}'
+        )
 
 
 if __name__ == "__main__":
