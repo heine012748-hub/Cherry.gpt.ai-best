@@ -1,16 +1,18 @@
-# Cherry.gpt.ai-best — B2B Discovery v0.1
+# Cherry.gpt.ai-best — B2B Discovery v0.2
 
 ## Project
 
 Cherry.gpt.ai-best is a broader global business and data project. Version 0.1
 implements a CSV-based B2B Customer & Partner Discovery workflow: load company
 records, filter eligible candidates, calculate a transparent B2B Priority Score,
-and rank prospects for an initial outreach review.
+and rank prospects for an initial outreach review. v0.2 adds an optional,
+evidence-validated Business Signal analysis layer while retaining v0.1 as the
+default behavior.
 
 Global market research, e-commerce analysis, consumer/VOC analysis, and
 strategy generation are future project areas; they are not implemented in v0.1.
 
-## Implemented in v0.1
+## Implemented
 
 - Load company records from CSV.
 - Filter by country, industry, minimum employees, and product category.
@@ -18,6 +20,10 @@ strategy generation are future project areas; they are not implemented in v0.1.
   Signal, then sort by total priority score.
 - Print the score components and company website in the CLI.
 - Run a ready-to-use Singapore sample with one command.
+- Optionally analyze supplied public company text for six structured business
+  activity signals using an offline rules provider or an injected provider.
+- Validate provider evidence against the supplied source text and calculate a
+  deterministic Business Signal Score separately from analysis.
 
 ## Install
 
@@ -62,14 +68,7 @@ The example loads `data/sample/companies.csv` and applies:
 To choose different criteria or a different CSV, use the CLI directly:
 
 ```bash
-PYTHONPATH=src python -m b2b_discovery.company_analyzer --csv data/sample/companies.csv --country Singapore --industry "Food Distribution" --product-category plant-based --min-employees 100 --target-market Singapore
-```
-
-In Windows PowerShell, set the source path before running that command:
-
-```powershell
-$env:PYTHONPATH = "src"
-python -m b2b_discovery.company_analyzer --csv data/sample/companies.csv --country Singapore --industry "Food Distribution" --product-category plant-based --min-employees 100 --target-market Singapore
+python examples/run_b2b_discovery.py --country Singapore --industry "Food Distribution" --product-category plant-based --min-employees 100 --target-market Singapore
 ```
 
 The CLI prints candidates in descending Priority Score order. Component
@@ -90,9 +89,14 @@ The CSV must include these columns:
 | `website` | No | Public company website |
 | `operating_markets` | No | Semicolon- or pipe-separated markets where it operates |
 | `business_signals` | No | Semicolon- or pipe-separated public activity tags, such as importer or exporter |
+| `company_description` | No | Public company description supplied as analysis evidence |
+| `business_type` | No | Public business type supplied as analysis evidence |
+| `website_content` | No | Public website text supplied as evidence; the URL alone is not evidence |
 
-The original five required columns remain valid; the three additional columns
-are optional. See `data/sample/companies.csv` for a complete example.
+The original five required columns remain valid; all additional columns are
+optional. Existing `business_signals` values are preserved as manual CSV data
+and are not overwritten by analysis. See `data/sample/companies.csv` for the
+current sample schema.
 
 ## Candidate Filter
 
@@ -147,6 +151,43 @@ omitted when no target market is requested. The other available components are
 renormalized to a 100-point total. Scores are rounded to the nearest integer,
 and ties are sorted by company name.
 
+### Optional v0.2 Business Signal Analysis
+
+The default CLI and Python API continue to use the v0.1 deterministic score.
+To opt into the new evidence-based scoring path with the offline rules
+provider, run:
+
+```bash
+python examples/run_b2b_discovery.py --business-signal-mode rules
+```
+
+The rules provider analyzes only `company_description`, `business_type`, and
+`website_content`; `website` URL and manually entered `business_signals` are
+not analysis evidence. A future LLM adapter can implement the same provider
+interface. No LLM SDK or API key is required. Provider output contains
+structured signals and evidence only; it cannot return or override a score.
+Validation requires exactly these six names: `distributor`, `importer`,
+`wholesaler`, `retailer`, `exporter`, and `international_business`. Confidence
+must be in `[0, 1]`, and each detected signal must cite a quote present in its
+supplied source text. Confidence describes how strongly the analyzer considers
+the supplied evidence to support a classification; it is not multiplied into
+the score and is not purchase probability.
+
+The v0.2 Business Signal Score is the percentage of distinct signals confirmed
+with at least one valid evidence item:
+
+```text
+confirmed distinct signals / 6 × 100
+```
+
+The score is rounded to one decimal place. Duplicate evidence for the same
+signal counts once; confidence does not affect the score. Without text input,
+analysis is `insufficient_input` and the score is zero. In `rules` mode this
+score feeds the existing Business Signal component (base weight 20), followed
+by the existing normalized Priority Score calculation. Without explicit
+`--business-signal-mode rules`, existing v0.1 scoring and CLI behavior remain
+unchanged.
+
 ## Sample execution
 
 Run:
@@ -167,6 +208,24 @@ For example, Orchid Foods scores
 `round((100×60 + 60×40 + 100×30 + 100×20) / 150) = 89`. These values are
 calculated from the CSV at runtime; they are not hard-coded in the example.
 
+Run the optional evidence-based rules mode against the same sample:
+
+```bash
+python examples/run_b2b_discovery.py --business-signal-mode rules
+```
+
+Actual rules-mode output:
+
+```text
+Score  Company                      Country          Industry               Employees Fit (P/C/M/B)  Website
+   85  Orchid Foods                 Singapore        Food Distribution      240      P:100 C:60 M:100 B:66.7 https://orchid.example
+   77  Straits Food Partners        Singapore        Food Distribution      180      P:100 C:40 M:100 B:50.0 https://straits.example
+```
+
+The v0.1 example above uses the unchanged default path. The rules-mode values
+come from the supplied `company_description`, `business_type`, and
+`website_content` fields.
+
 ## Verify
 
 Install the test dependency with the other requirements, then run:
@@ -174,6 +233,8 @@ Install the test dependency with the other requirements, then run:
 ```bash
 pytest
 ```
+
+The v0.2 review test run completed with **41 passed**.
 
 ## Limitations
 
@@ -183,9 +244,14 @@ pytest
 - Market and business signals depend on user-supplied CSV data. Missing or
   stale data can lower or distort rankings.
 - Business-signal detection uses a small keyword list and cannot understand
-  context or verify claims on a company's website.
+  context or verify claims on a company's website. v0.2 checks only supplied
+  public text; it does not fetch or independently verify websites.
 - A high score only means the available fields align with the chosen criteria.
   Validate prospects and their current activity before outreach.
+
+Business Signal and Priority Score are heuristic indicators for prioritizing
+outreach based on available business information. They do not predict purchase
+intent, purchase probability, or actual customer conversion.
 
 ## License
 

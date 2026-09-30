@@ -19,6 +19,9 @@ class Company:
     website: str = ""
     operating_markets: tuple[str, ...] = ()
     business_signals: tuple[str, ...] = ()
+    company_description: str = ""
+    business_type: str = ""
+    website_content: str = ""
 
 
 @dataclass(frozen=True)
@@ -74,6 +77,9 @@ def load_companies(csv_path: str | Path) -> list[Company]:
                 website=(row.get("website") or "").strip(),
                 operating_markets=_split_categories(row.get("operating_markets") or ""),
                 business_signals=_split_categories(row.get("business_signals") or ""),
+                company_description=(row.get("company_description") or "").strip(),
+                business_type=(row.get("business_type") or "").strip(),
+                website_content=(row.get("website_content") or "").strip(),
             ))
     return companies
 
@@ -186,9 +192,13 @@ def score_company(company: Company, criteria: DiscoveryCriteria) -> int:
     return _weighted_priority_score(score_company_components(company, criteria))
 
 def analyze_companies(
-    companies: Iterable[Company], criteria: DiscoveryCriteria
+    companies: Iterable[Company], criteria: DiscoveryCriteria, *, business_signal_provider=None
 ) -> list[dict[str, object]]:
-    """Filter by all supplied criteria, score matches, and sort descending."""
+    """Filter, score, and rank candidates.
+
+    With no provider, the v0.1 scoring path is retained byte-for-byte in its
+    behavior. Supplying a provider opts into validated evidence-based signals.
+    """
     requested_categories = {item.casefold() for item in criteria.product_categories}
     results: list[dict[str, object]] = []
     for company in companies:
@@ -203,11 +213,20 @@ def analyze_companies(
         ):
             continue
         components = score_company_components(company, criteria)
-        results.append({
+        row: dict[str, object] = {
             "company": company,
             "score": _weighted_priority_score(components),
             "score_components": components,
-        })
+        }
+        if business_signal_provider is not None:
+            from .business_signal_analyzer import analyze_business_signals
+            from .business_signal_scoring import score_business_signals
+
+            analysis = analyze_business_signals(company, business_signal_provider)
+            components["business_signal"] = score_business_signals(analysis)
+            row["score"] = _weighted_priority_score(components)
+            row["business_signal_analysis"] = analysis
+        results.append(row)
     return sorted(
         results,
         key=lambda result: (-int(result["score"]), str(result["company"].name).casefold()),
@@ -228,6 +247,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--target-market", default="", help="Comma-separated target markets for Market Fit")
     parser.add_argument("--target-employees-min", type=int, default=None, help="Lower edge of ideal account-size range")
     parser.add_argument("--target-employees-max", type=int, default=None, help="Upper edge of ideal account-size range")
+    parser.add_argument(
+        "--business-signal-mode", choices=("legacy", "rules"), default="legacy",
+        help="Business Signal scoring mode (default: unchanged v0.1 legacy rules)",
+    )
     args = parser.parse_args(argv)
     if args.min_employees < 0:
         parser.error("--min-employees must be non-negative")
@@ -247,7 +270,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         target_employee_min=args.target_employees_min,
         target_employee_max=args.target_employees_max,
     )
-    results = analyze_companies(load_companies(args.csv), criteria)
+    provider = None
+    if args.business_signal_mode == "rules":
+        from .business_signal_analyzer import RulesBusinessSignalProvider
+        provider = RulesBusinessSignalProvider()
+    results = analyze_companies(load_companies(args.csv), criteria, business_signal_provider=provider)
     if not results:
         print("No matching companies found.")
         return 0

@@ -9,11 +9,30 @@ __all__ = [
     "load_companies",
     "score_company",
     "score_company_components",
+    "BusinessSignal",
+    "BusinessSignalAnalysis",
+    "BusinessSignalEvidence",
+    "RulesBusinessSignalProvider",
+    "MockBusinessSignalProvider",
+    "SignalValidationError",
+    "analyze_business_signals",
+    "validate_business_signal_analysis",
+    "score_business_signals",
 ]
 
 
 def __getattr__(name: str):
     if name not in __all__:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    analyzer = import_module(".company_analyzer", __name__)
-    return getattr(analyzer, name)
+    if name in {"score_business_signals"}:
+        module = import_module(".business_signal_scoring", __name__)
+    elif name in {
+        "BusinessSignal", "BusinessSignalAnalysis", "BusinessSignalEvidence",
+        "RulesBusinessSignalProvider", "MockBusinessSignalProvider",
+        "SignalValidationError", "analyze_business_signals",
+        "validate_business_signal_analysis",
+    }:
+        module = import_module(".business_signal_analyzer", __name__)
+    else:
+        module = import_module(".company_analyzer", __name__)
+    return getattr(module, name)
