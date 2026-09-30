@@ -10,7 +10,8 @@ evidence-validated Business Signal analysis layer; v0.3 adds an optional
 OpenAI provider. The v0.1 behavior remains the default.
 
 Global market research, e-commerce analysis, consumer/VOC analysis, and
-strategy generation are future project areas; they are not implemented in v0.1.
+strategy generation are future project areas and are not implemented in the
+current release.
 
 ## Implemented
 
@@ -29,6 +30,11 @@ strategy generation are future project areas; they are not implemented in v0.1.
 
 Clone the repository and change into its directory. Python 3.10 or newer is
 recommended.
+
+```bash
+git clone https://github.com/heine012748-hub/Cherry.gpt.ai-best.git
+cd Cherry.gpt.ai-best
+```
 
 Create and activate a virtual environment:
 
@@ -190,13 +196,23 @@ unchanged.
 
 ### v0.3 OpenAI Business Signal Provider
 
-The existing `rules` provider is offline and uses the small keyword list. The
-optional `openai` provider sends only the company fields already present in the
-CSV to the OpenAI Responses API and asks for structured signal extraction.
-It does not browse to or crawl the website. The website URL is passed as
-context only; without `company_description`, `business_type`, or
-`website_content`, no provider call is made and the result is
+The default mode and `rules` mode run locally and do not call the OpenAI API.
+The `rules` provider uses keyword and rule-based detection; it can miss complex
+context and varied language. Only when `--business-signal-mode openai` is
+selected does the OpenAI provider call the OpenAI Responses API for
+LLM-based semantic signal analysis. Its classifications can still be wrong.
+
+The OpenAI provider sends company information supplied in the CSV as API
+input, including company description, business type, website content, website
+URL, and other company fields. The website URL is context only: the provider
+does not visit or crawl the website. If `company_description`, `business_type`,
+and `website_content` are all empty, no request is made and the result is
 `insufficient_input`.
+
+Do not put sensitive, personal, or confidential information in sample or input
+data when using OpenAI mode. Keep `OPENAI_API_KEY` in an environment variable;
+do not add it to the repository, source files, or CSV data. API usage may
+incur charges under your OpenAI account.
 
 Install the base and optional dependencies:
 
@@ -205,8 +221,8 @@ python -m pip install -r requirements.txt
 python -m pip install -r requirements-openai.txt
 ```
 
-Set the API key in the environment; do not put it in source files or CSV data.
-Set `OPENAI_MODEL` to override the default model (`gpt-4o-mini`):
+Set `OPENAI_API_KEY` in the environment. Optionally set `OPENAI_MODEL` to
+override the default model (`gpt-4o-mini`):
 
 ```bash
 export OPENAI_API_KEY="your-key"
@@ -322,21 +338,24 @@ The v0.3 test suite completed with **56 passed** (including the 41 v0.2 tests).
   configurable heuristics, not calibrated sales outcomes.
 - Market and business signals depend on user-supplied CSV data. Missing or
   stale data can lower or distort rankings.
-- Business-signal detection uses a small keyword list and cannot understand
-  context or verify claims on a company's website. v0.2 checks only supplied
-  public text; it does not fetch or independently verify websites.
-- OpenAI semantic classifications can still be wrong. Evidence validation
-  confirms that quotes occur in supplied text, but does not independently
-  confirm that a quote semantically supports its signal. `source_ref` is not
-  independently verified. OpenAI API errors and refusals stop the selected
-  OpenAI analysis; no automatic fallback is performed.
+- The offline rules provider uses a small keyword list and can miss context or
+  misclassify wording. The OpenAI provider uses LLM-based semantic analysis,
+  which can also make incorrect judgments. Neither provider fetches or
+  independently verifies websites; a website URL alone is not analyzed.
+- Evidence validation confirms that a quote occurs in supplied text. This is
+  separate from whether the quote semantically supports its signal.
+  `source_ref` is not independently verified.
+- OpenAI API errors and refusals can stop the selected OpenAI analysis; no
+  automatic fallback is performed. The project has no CRM integration.
 - A high score only means the available fields align with the chosen criteria.
   Validate prospects and their current activity before outreach.
 
-Business Signal and Priority Score are heuristic indicators for prioritizing
-outreach based on available business information. They do not predict purchase
-intent, purchase probability, or actual customer conversion.
+The Business Signal Score summarizes distinct evidence-backed activity
+signals, while Priority Score ranks outreach candidates using the configured
+criteria. Both are heuristic indicators based on available business
+information. Neither predicts purchase intent, purchase probability, or actual
+customer conversion.
 
 ## License
 
-MIT License
+This project is licensed under the MIT License. See [LICENSE](LICENSE).

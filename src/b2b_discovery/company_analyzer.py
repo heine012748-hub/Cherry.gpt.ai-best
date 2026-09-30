@@ -6,7 +6,10 @@ import csv
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import TYPE_CHECKING, Iterable, Sequence
+
+if TYPE_CHECKING:
+    from .business_signal_analyzer import BusinessSignalProvider
 
 
 @dataclass(frozen=True)
@@ -160,7 +163,7 @@ _SCORE_WEIGHTS = {
 
 def score_company_components(
     company: Company, criteria: DiscoveryCriteria
-) -> dict[str, int]:
+) -> dict[str, int | float]:
     """Return available 0–100 heuristic components for a prospect.
 
     Product and market components are omitted when the user did not specify
@@ -179,7 +182,7 @@ def score_company_components(
     return components
 
 
-def _weighted_priority_score(components: dict[str, int]) -> int:
+def _weighted_priority_score(components: dict[str, int | float]) -> int:
     total_weight = sum(_SCORE_WEIGHTS[name] for name in components)
     weighted_total = sum(
         components[name] * _SCORE_WEIGHTS[name] for name in components
@@ -192,7 +195,10 @@ def score_company(company: Company, criteria: DiscoveryCriteria) -> int:
     return _weighted_priority_score(score_company_components(company, criteria))
 
 def analyze_companies(
-    companies: Iterable[Company], criteria: DiscoveryCriteria, *, business_signal_provider=None
+    companies: Iterable[Company],
+    criteria: DiscoveryCriteria,
+    *,
+    business_signal_provider: BusinessSignalProvider | None = None,
 ) -> list[dict[str, object]]:
     """Filter, score, and rank candidates.
 
