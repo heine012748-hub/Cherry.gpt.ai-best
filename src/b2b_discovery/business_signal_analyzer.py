@@ -163,6 +163,9 @@ def validate_business_signal_analysis(
     status = raw.get("analysis_status", "completed")
     if not isinstance(status, str) or status not in {"completed", "insufficient_input"}:
         raise SignalValidationError("analysis_status is invalid")
+    schema_version = raw.get("schema_version", "0.2")
+    if not isinstance(schema_version, str) or schema_version not in {"0.2", "0.3"}:
+        raise SignalValidationError("schema_version is invalid")
     raw_signals = raw.get("signals")
     if not isinstance(raw_signals, Sequence) or isinstance(raw_signals, (str, bytes)):
         raise SignalValidationError("signals must be a list")
@@ -213,6 +216,7 @@ def validate_business_signal_analysis(
         analysis_status=str(status),
         signals=tuple(by_name[name] for name in SIGNAL_NAMES),
         provider=provider,
+        schema_version=schema_version,
     )
 
 

@@ -248,8 +248,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--target-employees-min", type=int, default=None, help="Lower edge of ideal account-size range")
     parser.add_argument("--target-employees-max", type=int, default=None, help="Upper edge of ideal account-size range")
     parser.add_argument(
-        "--business-signal-mode", choices=("legacy", "rules"), default="legacy",
-        help="Business Signal scoring mode (default: unchanged v0.1 legacy rules)",
+        "--business-signal-mode", choices=("legacy", "rules", "openai"), default="legacy",
+        help="Business Signal mode: unchanged v0.1 default, offline rules, or optional OpenAI",
     )
     args = parser.parse_args(argv)
     if args.min_employees < 0:
@@ -271,10 +271,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         target_employee_max=args.target_employees_max,
     )
     provider = None
-    if args.business_signal_mode == "rules":
-        from .business_signal_analyzer import RulesBusinessSignalProvider
-        provider = RulesBusinessSignalProvider()
-    results = analyze_companies(load_companies(args.csv), criteria, business_signal_provider=provider)
+    from .openai_business_signal_provider import OpenAIProviderError
+    try:
+        if args.business_signal_mode == "rules":
+            from .business_signal_analyzer import RulesBusinessSignalProvider
+            provider = RulesBusinessSignalProvider()
+        elif args.business_signal_mode == "openai":
+            from .openai_business_signal_provider import OpenAIBusinessSignalProvider
+            provider = OpenAIBusinessSignalProvider()
+        results = analyze_companies(
+            load_companies(args.csv), criteria, business_signal_provider=provider
+        )
+    except OpenAIProviderError as exc:
+        parser.error(str(exc))
     if not results:
         print("No matching companies found.")
         return 0

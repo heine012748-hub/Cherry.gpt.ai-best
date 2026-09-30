@@ -1,4 +1,4 @@
-# Cherry.gpt.ai-best — B2B Discovery v0.2
+# Cherry.gpt.ai-best — B2B Discovery v0.3
 
 ## Project
 
@@ -6,8 +6,8 @@ Cherry.gpt.ai-best is a broader global business and data project. Version 0.1
 implements a CSV-based B2B Customer & Partner Discovery workflow: load company
 records, filter eligible candidates, calculate a transparent B2B Priority Score,
 and rank prospects for an initial outreach review. v0.2 adds an optional,
-evidence-validated Business Signal analysis layer while retaining v0.1 as the
-default behavior.
+evidence-validated Business Signal analysis layer; v0.3 adds an optional
+OpenAI provider. The v0.1 behavior remains the default.
 
 Global market research, e-commerce analysis, consumer/VOC analysis, and
 strategy generation are future project areas; they are not implemented in v0.1.
@@ -188,6 +188,85 @@ by the existing normalized Priority Score calculation. Without explicit
 `--business-signal-mode rules`, existing v0.1 scoring and CLI behavior remain
 unchanged.
 
+### v0.3 OpenAI Business Signal Provider
+
+The existing `rules` provider is offline and uses the small keyword list. The
+optional `openai` provider sends only the company fields already present in the
+CSV to the OpenAI Responses API and asks for structured signal extraction.
+It does not browse to or crawl the website. The website URL is passed as
+context only; without `company_description`, `business_type`, or
+`website_content`, no provider call is made and the result is
+`insufficient_input`.
+
+Install the base and optional dependencies:
+
+```bash
+python -m pip install -r requirements.txt
+python -m pip install -r requirements-openai.txt
+```
+
+Set the API key in the environment; do not put it in source files or CSV data.
+Set `OPENAI_MODEL` to override the default model (`gpt-4o-mini`):
+
+```bash
+export OPENAI_API_KEY="your-key"
+export OPENAI_MODEL="gpt-4o-mini"
+```
+
+Windows PowerShell:
+
+```powershell
+$env:OPENAI_API_KEY = "your-key"
+$env:OPENAI_MODEL = "gpt-4o-mini"
+```
+
+Run the sample with the OpenAI provider:
+
+```bash
+python examples/run_b2b_discovery.py --business-signal-mode openai
+```
+
+Without `OPENAI_API_KEY`, OpenAI mode exits with an actionable error and does
+not silently fall back to `rules` or legacy scoring. API failures and refusals
+are also reported as errors; invalid output is not scored. The OpenAI provider
+uses the Responses API structured-output parser and returns only the existing
+six-signal data shape, tagged as schema version `0.3`. LLM output is treated as
+evidence extraction, not as a direct score.
+
+Example structured result (shortened to one signal for readability):
+
+```json
+{
+  "schema_version": "0.3",
+  "signals": [
+    {
+      "name": "importer",
+      "detected": true,
+      "evidence": [
+        {
+          "source_type": "website_content",
+          "source_ref": "provided-input",
+          "quote": "We import plant-based food products."
+        }
+      ],
+      "confidence": 0.91
+    }
+  ]
+}
+```
+
+The returned signal data goes through the same shared validation as v0.2:
+names, duplicates, evidence presence, exact evidence quotes, source fields, and
+confidence range are checked. Only then does the deterministic scorer compute
+the percentage of distinct evidence-backed signals. Confidence does not affect
+that score and is not purchase probability. Business Signal Score is not
+purchase probability; Priority Score remains a heuristic for outreach
+prioritization.
+
+The test suite injects a fake `responses.parse` client and never makes an
+OpenAI API call. Base requirements do not install the OpenAI SDK or Pydantic;
+the provider imports them only when OpenAI mode is selected.
+
 ## Sample execution
 
 Run:
@@ -234,7 +313,7 @@ Install the test dependency with the other requirements, then run:
 pytest
 ```
 
-The v0.2 review test run completed with **41 passed**.
+The v0.3 test suite completed with **56 passed** (including the 41 v0.2 tests).
 
 ## Limitations
 
@@ -246,6 +325,11 @@ The v0.2 review test run completed with **41 passed**.
 - Business-signal detection uses a small keyword list and cannot understand
   context or verify claims on a company's website. v0.2 checks only supplied
   public text; it does not fetch or independently verify websites.
+- OpenAI semantic classifications can still be wrong. Evidence validation
+  confirms that quotes occur in supplied text, but does not independently
+  confirm that a quote semantically supports its signal. `source_ref` is not
+  independently verified. OpenAI API errors and refusals stop the selected
+  OpenAI analysis; no automatic fallback is performed.
 - A high score only means the available fields align with the chosen criteria.
   Validate prospects and their current activity before outreach.
 

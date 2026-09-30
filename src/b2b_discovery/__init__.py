@@ -18,6 +18,11 @@ __all__ = [
     "analyze_business_signals",
     "validate_business_signal_analysis",
     "score_business_signals",
+    "OpenAIBusinessSignalProvider",
+    "OpenAIProviderError",
+    "OpenAIConfigurationError",
+    "OpenAIResponseError",
+    "OpenAIAPIError",
 ]
 
 
@@ -33,6 +38,11 @@ def __getattr__(name: str):
         "validate_business_signal_analysis",
     }:
         module = import_module(".business_signal_analyzer", __name__)
+    elif name in {
+        "OpenAIBusinessSignalProvider", "OpenAIProviderError",
+        "OpenAIConfigurationError", "OpenAIResponseError", "OpenAIAPIError",
+    }:
+        module = import_module(".openai_business_signal_provider", __name__)
     else:
         module = import_module(".company_analyzer", __name__)
     return getattr(module, name)
