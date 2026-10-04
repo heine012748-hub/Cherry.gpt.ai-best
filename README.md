@@ -1,5 +1,9 @@
 # Cherry.gpt.ai-best — B2B Discovery v0.3
+> LLM-powered B2B Prospect Discovery Tool  
+> Structures company information into validated business signals and prioritizes B2B outreach candidates.
 
+[![Tests](https://github.com/heine012748-hub/Cherry.gpt.ai-best/actions/workflows/tests.yml/badge.svg)](https://github.com/heine012748-hub/Cherry.gpt.ai-best/actions/workflows/tests.yml)
+⭐ If you find this project useful, consider starring the repository.
 ## Project
 
 Cherry.gpt.ai-best is a broader global business and data project. Version 0.1
