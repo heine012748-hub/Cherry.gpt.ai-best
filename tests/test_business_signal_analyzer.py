@@ -150,6 +150,63 @@ def test_rules_provider_does_not_treat_simple_negation_as_an_activity():
     assert not any(signal.detected for signal in analysis.signals)
 
 
+def test_rules_provider_handles_multiple_negated_clauses_without_cross_sentence_scope():
+    item = company(
+        company_description=(
+            "We do not import products; we are not a distributor. "
+            "We export tea to overseas markets."
+        )
+    )
+    analysis = analyze_business_signals(item, RulesBusinessSignalProvider())
+    detected = {signal.name for signal in analysis.signals if signal.detected}
+    assert detected == {"exporter", "international_business"}
+
+
+def test_rules_provider_detects_multiple_signals_from_one_business_description():
+    item = company(
+        company_description=(
+            "We are a wholesaler and retailer that imports food products "
+            "and exports selected products overseas."
+        )
+    )
+    analysis = analyze_business_signals(item, RulesBusinessSignalProvider())
+    detected = {signal.name for signal in analysis.signals if signal.detected}
+    assert detected == {
+        "wholesaler", "retailer", "importer", "exporter", "international_business"
+    }
+    assert score_business_signals(analysis) == 83.3
+
+
+def test_rules_provider_uses_word_boundaries_to_avoid_partial_keyword_matches():
+    item = company(
+        company_description=(
+            "Our team is important to customers. "
+            "We monitor market trends and provide product information."
+        )
+    )
+    analysis = analyze_business_signals(item, RulesBusinessSignalProvider())
+    assert not any(signal.detected for signal in analysis.signals)
+
+
+def test_validation_rejects_detected_signal_when_evidence_quote_is_not_input_text():
+    item = company(
+        company_description="We distribute food products."
+    )
+    raw = response(item, ("distributor",))
+    raw["signals"][0]["evidence"][0]["quote"] = "We export food products."
+    with pytest.raises(SignalValidationError, match="not present"):
+        validate_business_signal_analysis(item, raw)
+
+
+def test_deterministic_scorer_counts_distinct_signals_only():
+    item = company(
+        company_description="We distribute food and export products overseas."
+    )
+    raw = response(item, ("distributor", "exporter", "international_business"), evidence_count=3)
+    analysis = validate_business_signal_analysis(item, raw)
+    assert score_business_signals(analysis) == 50.0
+
+
 def test_website_url_alone_never_produces_detected_signal():
     item = company(website="https://example.test")
     analysis = analyze_business_signals(item, RulesBusinessSignalProvider())
